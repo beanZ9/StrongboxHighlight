@@ -16,7 +16,6 @@ using System.Runtime.CompilerServices;
 using System.Security.AccessControl;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using Color = SharpDX.Color;
 
@@ -32,10 +31,11 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
 
     private readonly List<string> _excludedStrings = new List<string>() { "account-bound", "italic" };
     private Dictionary<StrongboxHighlightEntry, List<Element>> _highlightedLabels = new Dictionary<StrongboxHighlightEntry, List<Element>>();
-    private List<LabelOnGround> _chestLabels = new List<LabelOnGround>();
     private readonly Dictionary<StrongboxHighlightEntry, CachedRegex> _regexCache = new Dictionary<StrongboxHighlightEntry, CachedRegex>();
+    private readonly StringBuilder _modTextBuilder = new StringBuilder(256);
     private SyncTask<bool> _currentTask;
     private bool _enabledArea;
+    
     public override bool Initialise()
     {
         if (!Settings.HighlightEntries.Any()) {
@@ -69,6 +69,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
             _currentTask = Update();
         } else {
             _currentTask = null;
+            _highlightedLabels.Clear();
         }
     }
 
@@ -80,14 +81,11 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
         return null;
     }
 
-    private async SyncTask<bool> Update() {
+    private async SyncTask<bool> Update()
+    {
         while (_enabledArea) {
-            if (_chestLabels.Count < 1) {
-                _chestLabels = FindChests(100);
-                _highlightedLabels.Clear();
-            }
-            await ProcessChests();
-            await Task.Delay(100);
+            RecomputeHighlights();
+            await Task.Delay(50);
         }
         return false;
     }
@@ -115,16 +113,22 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
         return foundChests;
     }
 
-    private async SyncTask<bool> ProcessChests() {        
-        var modTextBuilder = new StringBuilder(256);
+    private void RecomputeHighlights() {
+        _highlightedLabels.Clear();
+
+        var chestLabels = FindChests(100);
+        if (chestLabels.Count == 0) {
+            return;
+        }
+
         for (int i = 0; i < Settings.HighlightEntries.Count; i++) {
             var entry = Settings.HighlightEntries[i];
             if (!TryGetRegex(entry, out var regex)) {
                 continue;
             }
 
-            foreach (var chest in _chestLabels) {
-                if (ChestMatchesRegex(chest, regex, modTextBuilder)) {
+            foreach (var chest in chestLabels) {
+                if (ChestMatchesRegex(chest, regex, _modTextBuilder)) {
                     if (_highlightedLabels.TryGetValue(entry, out var labels)) {
                         labels.Add(chest.Label);
                     } else {
@@ -133,9 +137,6 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                 }
             }
         }
-        _chestLabels.Clear();
-        await Task.Delay(1);
-        return true;
     }
 
     private bool ChestMatchesRegex(LabelOnGround chest, Regex regex, StringBuilder modTextBuilder)
