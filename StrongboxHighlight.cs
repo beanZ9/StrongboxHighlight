@@ -17,16 +17,22 @@ using System.Security.AccessControl;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using ExileCore.Shared.Nodes;
 using Color = SharpDX.Color;
 
 namespace StrongboxHighlight;
 
 public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
 {
+    private sealed class CachedRegex
+    {
+        public string Pattern { get; set; } = string.Empty;
+        public Regex Regex { get; set; }
+    }
+
     private readonly List<string> _excludedStrings = new List<string>() { "account-bound", "italic" };
     private Dictionary<StrongboxHighlightEntry, List<Element>> _highlightedLabels = new Dictionary<StrongboxHighlightEntry, List<Element>>();
     private List<LabelOnGround> _chestLabels = new List<LabelOnGround>();
+    private readonly Dictionary<StrongboxHighlightEntry, CachedRegex> _regexCache = new Dictionary<StrongboxHighlightEntry, CachedRegex>();
     private SyncTask<bool> _currentTask;
     private bool _enabledArea;
     public override bool Initialise()
@@ -50,9 +56,8 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
             };
         }
 
-        Settings.Reload.OnPressed += () => {
-
-        };
+        Settings.Reload.OnPressed += RebuildRegexCache;
+        RebuildRegexCache();
         return true;
     }
 
@@ -114,12 +119,8 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
     private async SyncTask<bool> ProcessChests() {        
         for (int i = 0; i < Settings.HighlightEntries.Count; i++) {
             var entry = Settings.HighlightEntries[i];
-            Regex regex;
-            try {
-                regex = new Regex(entry.Regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
-            } catch (Exception e) {
-                DebugWindow.LogError($"Can't compile regex: {e.Message}");
-                return false;
+            if (!TryGetRegex(entry, out var regex)) {
+                continue;
             }
 
             foreach (var chest in _chestLabels) {
@@ -143,6 +144,44 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
         _chestLabels.Clear();
         await Task.Delay(1);
         return true;
+    }
+
+    private void RebuildRegexCache()
+    {
+        _regexCache.Clear();
+        for (int i = 0; i < Settings.HighlightEntries.Count; i++) {
+            _ = TryGetRegex(Settings.HighlightEntries[i], out _);
+        }
+    }
+
+    private bool TryGetRegex(StrongboxHighlightEntry entry, out Regex regex)
+    {
+        regex = null;
+        if (entry == null || string.IsNullOrWhiteSpace(entry.Regex)) {
+            return false;
+        }
+
+        if (_regexCache.TryGetValue(entry, out var cached)
+            && string.Equals(cached.Pattern, entry.Regex, StringComparison.Ordinal)) {
+            regex = cached.Regex;
+            return regex != null;
+        }
+
+        try {
+            regex = new Regex(entry.Regex, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            _regexCache[entry] = new CachedRegex {
+                Pattern = entry.Regex,
+                Regex = regex
+            };
+            return true;
+        } catch (ArgumentException e) {
+            _regexCache[entry] = new CachedRegex {
+                Pattern = entry.Regex,
+                Regex = null
+            };
+            DebugWindow.LogError($"Invalid regex '{entry.Regex}': {e.Message}");
+            return false;
+        }
     }
 
     public override void DrawSettings() {
