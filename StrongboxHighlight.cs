@@ -132,8 +132,8 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                 var entry = Settings.HighlightEntries[i];
                 ImGui.PushID(i);
                 var regex = entry.Regex;
-                var frameColor = entry.FrameColor.ToVector4().ToVector4Num();
-                var boxColor = entry.BoxColor.ToVector4().ToVector4Num();
+                var frameColor = entry.FrameColor.ToImguiVec4();
+                var boxColor = entry.BoxColor.ToImguiVec4();
                 var drawFrame = entry.DrawFrame;
                 var drawBox = entry.DrawBox;
                 ImGui.InputTextWithHint($"Regex##{i}", "Enter regex", ref regex, 2048);
@@ -147,7 +147,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                         ImGui.OpenPopup($"edit_framecolor##{i}");
                     }
                     if (ImGui.BeginPopup($"edit_framecolor##{i}", ImGuiWindowFlags.AlwaysAutoResize)) {
-                        ImGui.ColorPicker4($"framecolor_picker##{i}", ref frameColor);
+                        ImGui.ColorPicker4($"##framecolor_picker{i}", ref frameColor, ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview);
                         ImGui.EndPopup();
                     }
                 }
@@ -161,7 +161,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                         ImGui.OpenPopup($"edit_boxcolor##{i}");
                     }
                     if (ImGui.BeginPopup($"edit_boxcolor##{i}", ImGuiWindowFlags.AlwaysAutoResize)) {
-                        ImGui.ColorPicker4($"boxcolor_picker##{i}", ref boxColor);
+                        ImGui.ColorPicker4($"##boxcolor_picker##{i}", ref boxColor, ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview);
                         ImGui.EndPopup();
                     }
                 }
