@@ -14,6 +14,7 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Security.AccessControl;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -84,11 +85,9 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
             if (_chestLabels.Count < 1) {
                 _chestLabels = FindChests(100);
                 _highlightedLabels.Clear();
-                
             }
             await ProcessChests();
-            await Task.Delay(50);
-            return true;
+            await Task.Delay(100);
         }
         return false;
     }
@@ -117,6 +116,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
     }
 
     private async SyncTask<bool> ProcessChests() {        
+        var modTextBuilder = new StringBuilder(256);
         for (int i = 0; i < Settings.HighlightEntries.Count; i++) {
             var entry = Settings.HighlightEntries[i];
             if (!TryGetRegex(entry, out var regex)) {
@@ -124,19 +124,11 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
             }
 
             foreach (var chest in _chestLabels) {
-                if (chest.Label[0] != null && chest.Label[0][1] != null && chest.Label[0][1].Children
-                    .Where(x => !string.IsNullOrEmpty(x.Text) && !_excludedStrings.Any(s => x.Text.Contains(s, StringComparison.OrdinalIgnoreCase)))
-                    .Select(x => x.Text.ToLower())
-                    .ToArray() is { Length: > 0 } modStrings) {
-
-                    string added = string.Join("\n", modStrings);
-
-                    if (regex.IsMatch(added)) {
-                        if (_highlightedLabels.TryGetValue(entry, out var labels)) {
-                            labels.Add(chest.Label);
-                        } else {
-                            _highlightedLabels.Add(entry, new List<Element>() { chest.Label });
-                        }
+                if (ChestMatchesRegex(chest, regex, modTextBuilder)) {
+                    if (_highlightedLabels.TryGetValue(entry, out var labels)) {
+                        labels.Add(chest.Label);
+                    } else {
+                        _highlightedLabels.Add(entry, new List<Element>() { chest.Label });
                     }
                 }
             }
@@ -144,6 +136,52 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
         _chestLabels.Clear();
         await Task.Delay(1);
         return true;
+    }
+
+    private bool ChestMatchesRegex(LabelOnGround chest, Regex regex, StringBuilder modTextBuilder)
+    {
+        modTextBuilder.Clear();
+
+        var label = chest?.Label;
+        if (label?.Children == null || label.Children.Count < 1) {
+            return false;
+        }
+
+        var firstRow = label.Children[0];
+        if (firstRow?.Children == null || firstRow.Children.Count < 2) {
+            return false;
+        }
+
+        var modRoot = firstRow.Children[1];
+        if (modRoot?.Children == null || modRoot.Children.Count < 1) {
+            return false;
+        }
+
+        var hasModText = false;
+        foreach (var child in modRoot.Children) {
+            var text = child?.Text;
+            if (string.IsNullOrEmpty(text) || ContainsExcludedText(text)) {
+                continue;
+            }
+
+            if (hasModText) {
+                modTextBuilder.Append('\n');
+            }
+            modTextBuilder.Append(text.ToLower());
+            hasModText = true;
+        }
+
+        return hasModText && regex.IsMatch(modTextBuilder.ToString());
+    }
+
+    private bool ContainsExcludedText(string text)
+    {
+        for (int i = 0; i < _excludedStrings.Count; i++) {
+            if (text.Contains(_excludedStrings[i], StringComparison.OrdinalIgnoreCase)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void RebuildRegexCache()
