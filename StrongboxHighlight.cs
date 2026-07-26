@@ -153,8 +153,8 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
             return false;
         }
 
-        var modRoot = firstRow.Children[1];
-        if (modRoot?.Children == null || modRoot.Children.Count < 1) {
+        var modRoot = firstRow.Children[1]?.Children[3];
+        if (modRoot == null ||  modRoot?.Children == null || modRoot.Children.Count < 1) {
             return false;
         }
 
