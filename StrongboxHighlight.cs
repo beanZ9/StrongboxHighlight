@@ -246,7 +246,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                         ImGui.OpenPopup($"edit_framecolor##{i}");
                     }
                     if (ImGui.BeginPopup($"edit_framecolor##{i}", ImGuiWindowFlags.AlwaysAutoResize)) {
-                        ImGui.ColorPicker4($"##framecolor_picker{i}", ref frameColor, ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview);
+                        ImGui.ColorPicker4($"##framecolor_picker{i}", ref frameColor, ImGuiColorEditFlags.AlphaBar);
                         ImGui.EndPopup();
                     }
                 }
@@ -260,7 +260,7 @@ public class StrongboxHighlight : BaseSettingsPlugin<StrongboxHighlightSettings>
                         ImGui.OpenPopup($"edit_boxcolor##{i}");
                     }
                     if (ImGui.BeginPopup($"edit_boxcolor##{i}", ImGuiWindowFlags.AlwaysAutoResize)) {
-                        ImGui.ColorPicker4($"##boxcolor_picker##{i}", ref boxColor, ImGuiColorEditFlags.AlphaBar | ImGuiColorEditFlags.AlphaPreview);
+                        ImGui.ColorPicker4($"##boxcolor_picker##{i}", ref boxColor, ImGuiColorEditFlags.AlphaBar);
                         ImGui.EndPopup();
                     }
                 }
